@@ -789,8 +789,10 @@ impl RendezvousServer {
                 let bit_idx = 7 - i % 8;
                 if elapsed < REG_TIMEOUT {
                     states[states_idx] |= 0x01 << bit_idx;
+                    self.pm.update_status(peer_id, &states[states_idx]).await;
+                } else {
+                    self.pm.update_status(peer_id, &0).await;
                 }
-                self.pm.update_status(peer_id, &states[states_idx]).await;
             } else {
                 self.pm.update_status(peer_id, &0).await;
             }
