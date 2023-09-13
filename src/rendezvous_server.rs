@@ -234,6 +234,17 @@ impl RendezvousServer {
         loop {
             tokio::select! {
                 _ = timer_check_relay.tick() => {
+                    //good place to update database with online peers
+                    let peers = self.pm.db.get_peers().await;
+                    match peers {
+                        Ok(peers) => {
+                            // Do something with the peers.
+                            let _pres = self.get_online_peers(peers).await;
+                        },
+                        Err(err) => {
+                            // Handle the error.
+                        },
+                    }
                     if self.relay_servers0.len() > 1 {
                         let rs = self.relay_servers0.clone();
                         let tx = self.tx.clone();
@@ -762,6 +773,27 @@ impl RendezvousServer {
             });
             Ok((msg_out, None))
         }
+    }
+
+    #[inline]
+    async fn get_online_peers(
+        &mut self,
+        peers: Vec<String>,
+    ) -> ResultType<()> {
+        let mut states = BytesMut::zeroed((peers.len() + 7) / 8);
+        for (i, peer_id) in peers.iter().enumerate() {
+            if let Some(peer) = self.pm.get_in_memory(peer_id).await {
+                let elapsed = peer.read().await.last_reg_time.elapsed().as_millis() as i32;
+                // bytes index from left to right
+                let states_idx = i / 8;
+                let bit_idx = 7 - i % 8;
+                if elapsed < REG_TIMEOUT {
+                    states[states_idx] |= 0x01 << bit_idx;
+                }
+                self.pm.update_status(peer_id, &states[states_idx]).await;
+            }
+        }
+        Ok(())
     }
 
     #[inline]

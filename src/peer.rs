@@ -90,6 +90,20 @@ impl PeerMap {
     }
 
     #[inline]
+    pub(crate) async fn update_status(
+        &mut self,
+        peer_id: &String,
+        status: &u8,
+    ) -> register_pk_response::Result {
+        //log::info!("update_status {} {:?} ", peer_id, status);
+        if let Err(err) = self.db.update_status(peer_id, status).await {
+            log::error!("db.update_status failed: {}", err);
+            return register_pk_response::Result::SERVER_ERROR;
+        }
+        register_pk_response::Result::OK
+    }
+
+    #[inline]
     pub(crate) async fn update_pk(
         &mut self,
         id: String,

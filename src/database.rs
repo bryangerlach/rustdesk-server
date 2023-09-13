@@ -1,9 +1,10 @@
 use async_trait::async_trait;
+use deadpool::managed::PoolError;
 use hbb_common::{log, ResultType};
 use sqlx::{
-    sqlite::SqliteConnectOptions, ConnectOptions, Connection, Error as SqlxError, SqliteConnection,
+    sqlite::SqliteConnectOptions, ConnectOptions, Connection, Error as SqlxError, SqliteConnection, error::DatabaseError,
 };
-use std::{ops::DerefMut, str::FromStr};
+use std::{ops::DerefMut, str::FromStr, error::Error};
 //use sqlx::postgres::PgPoolOptions;
 //use sqlx::mysql::MySqlPoolOptions;
 
@@ -44,6 +45,11 @@ pub struct Peer {
     pub user: Option<Vec<u8>>,
     pub info: String,
     pub status: Option<i64>,
+}
+
+#[derive(sqlx::FromRow)]
+pub struct Peers {
+    pub id: String,
 }
 
 impl Database {
@@ -93,6 +99,18 @@ impl Database {
         Ok(())
     }
 
+    pub async fn get_peers(&self) -> ResultType<Vec<String>, PoolError<sqlx::Error>> {    
+        
+        let peers = sqlx::query_as!(Peers, "SELECT id FROM peer").fetch_all(self.pool.get().await?.deref_mut()).await?;
+        let mut peer_ids = Vec::new();
+
+        for peer in peers {
+            peer_ids.push(peer.id.to_string());
+        }
+
+        Ok(peer_ids)
+    }
+
     pub async fn get_peer(&self, id: &str) -> ResultType<Option<Peer>> {
         Ok(sqlx::query_as!(
             Peer,
@@ -122,6 +140,21 @@ impl Database {
         .execute(self.pool.get().await?.deref_mut())
         .await?;
         Ok(guid)
+    }
+
+    pub async fn update_status(
+        &self,
+        peer_id: &str,
+        status: &u8,
+    ) -> ResultType<()> {
+        sqlx::query!(
+            "update peer set status=? where id=?",
+            status,
+            peer_id
+        )
+        .execute(self.pool.get().await?.deref_mut())
+        .await?;
+        Ok(())
     }
 
     pub async fn update_pk(
