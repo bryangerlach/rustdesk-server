@@ -522,7 +522,7 @@ async fn main() -> std::io::Result<()> {
             .service(changepass)
             .service(changepassform)
     })
-    .bind(("127.0.0.1", 21114))?
+    .bind(("0.0.0.0", 21114))?
     .run()
     .await
 }
