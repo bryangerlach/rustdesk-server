@@ -58,6 +58,7 @@ async fn hello(req: HttpRequest) -> impl Responder {
                 <table>
                     <thead>
                         <tr>
+                            <th>Connect</th>
                             <th>ID</th>
                             <th>Name</th>
                             <th>Info</th>
@@ -84,7 +85,7 @@ async fn hello(req: HttpRequest) -> impl Responder {
                     <td>{:?}</td>
                     <td>
                         <form action="/rename" method="post">
-                            <input type="text" name="newname" placeholder="New Username">
+                            <input type="text" name="newname" placeholder="New Device Name">
                             <input type="hidden" name="id" value="{}">
                             <button type="submit">Rename Device</button>
                         </form>
@@ -142,7 +143,7 @@ async fn hello(req: HttpRequest) -> impl Responder {
                         <td>{:?}</td>
                         <td>
                             <form action="/rename" method="post">
-                                <input type="text" name="newname" placeholder="New Username">
+                                <input type="text" name="newname" placeholder="New Device Name">
                                 <input type="hidden" name="id" value="{}">
                                 <button type="submit">Rename Device</button>
                             </form>
