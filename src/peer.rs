@@ -68,7 +68,7 @@ pub(crate) struct PeerMap {
 impl PeerMap {
     pub(crate) async fn new() -> ResultType<Self> {
         let db = std::env::var("DB_URL").unwrap_or({
-            let db = "db_v2.sqlite3".to_owned();
+            let mut db = "db_v2.sqlite3".to_owned();
             #[cfg(all(windows, not(debug_assertions)))]
             {
                 if let Some(path) = hbb_common::config::Config::icon_path().parent() {
