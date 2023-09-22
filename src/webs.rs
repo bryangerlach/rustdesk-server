@@ -16,7 +16,7 @@ struct Device {
 struct Logs {
     from_ip: Option<String>,
     to_id: Option<String>,
-    logged_at: NaiveDateTime,
+    logged_at: Option<NaiveDateTime>,
     user: Option<Vec<u8>>
 }
 
@@ -184,7 +184,7 @@ async fn log(req: HttpRequest) -> impl Responder {
     }
     let mut conn = get_conn().await;
 
-	let logs = sqlx::query_as!(Logs, "SELECT from_ip, to_id, logged_at, user FROM log INNER JOIN peer ON peer.id = log.to_id").fetch_all(&mut conn).await;
+	let logs = sqlx::query_as!(Logs, "SELECT from_ip, to_id, logged_at, user FROM log INNER JOIN peer ON peer.id = log.to_id ORDER BY logged_at DESC LIMIT 50").fetch_all(&mut conn).await;
     // Render the data in a table.
     let table = format!(
         r#"
@@ -237,7 +237,10 @@ async fn log(req: HttpRequest) -> impl Responder {
                         <td>{}</td>
                     </tr>
                 "#,
-                log.logged_at,
+                match &log.logged_at {
+                    Some(lat) => lat.to_string(),
+                    None => String::from_utf8("unknown".as_bytes().to_vec()).unwrap(),
+                },
                 match &log.from_ip {
                     Some(from) => from.to_string(),
                     None => String::from_utf8("unknown".as_bytes().to_vec()).unwrap(),
