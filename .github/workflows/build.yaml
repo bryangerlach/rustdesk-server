@@ -70,6 +70,7 @@ jobs:
             target/${{ matrix.job.target }}/release/hbbr
             target/${{ matrix.job.target }}/release/hbbs
             target/${{ matrix.job.target }}/release/rustdesk-utils
+            target/${{ matrix.job.target }}/release/webs
           if-no-files-found: error
 
   build-win:
@@ -156,6 +157,7 @@ jobs:
             ui\SignOutput\hbbr.exe
             ui\SignOutput\hbbs.exe
             ui\SignOutput\rustdesk-utils.exe
+            ui\SignOutput\webs.exe
             ui\SignOutput\RustDeskServer.Setup.exe
           if-no-files-found: error
 
@@ -489,4 +491,5 @@ jobs:
           files: |
             debian-build/rustdesk-server-hbbr_*_${{ matrix.job.debian_platform }}.deb
             debian-build/rustdesk-server-hbbs_*_${{ matrix.job.debian_platform }}.deb
+            debian-build/rustdesk-server-webs_*_${{ matrix.job.debian_platform }}.deb
             debian-build/rustdesk-server-utils_*_${{ matrix.job.debian_platform }}.deb
