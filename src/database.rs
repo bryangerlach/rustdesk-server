@@ -2,9 +2,9 @@ use async_trait::async_trait;
 use deadpool::managed::PoolError;
 use hbb_common::{log, ResultType};
 use sqlx::{
-    sqlite::SqliteConnectOptions, ConnectOptions, Connection, Error as SqlxError, SqliteConnection, error::DatabaseError,
+    sqlite::SqliteConnectOptions, ConnectOptions, Connection, Error as SqlxError, SqliteConnection,
 };
-use std::{ops::DerefMut, str::FromStr, error::Error};
+use std::{ops::DerefMut, str::FromStr};
 //use sqlx::postgres::PgPoolOptions;
 //use sqlx::mysql::MySqlPoolOptions;
 
@@ -92,6 +92,11 @@ impl Database {
             create index if not exists index_peer_user on peer (user);
             create index if not exists index_peer_created_at on peer (created_at);
             create index if not exists index_peer_status on peer (status);
+            create table if not exists log (
+                from_ip varchar(100),
+                to_id varchar(100),
+                logged_at datetime not null default(current_timestamp)
+            );
         "
         )
         .execute(self.pool.get().await?.deref_mut())
@@ -140,6 +145,21 @@ impl Database {
         .execute(self.pool.get().await?.deref_mut())
         .await?;
         Ok(guid)
+    }
+
+    pub async fn insert_log(
+        &self,
+        from_ip: &str,
+        to_id: &str,
+    ) -> ResultType<()> {
+        sqlx::query!(
+            "insert into log(from_ip, to_id) values (?, ?)",
+            from_ip,
+            to_id
+        )
+        .execute(self.pool.get().await?.deref_mut())
+        .await?;
+        Ok(())
     }
 
     pub async fn update_status(

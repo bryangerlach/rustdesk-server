@@ -243,6 +243,7 @@ impl RendezvousServer {
                         },
                         Err(err) => {
                             // Handle the error.
+                            log::debug!("error getting peers: {}",err.to_string());
                         },
                     }
                     if self.relay_servers0.len() > 1 {
@@ -495,6 +496,8 @@ impl RendezvousServer {
         if let Ok(msg_in) = RendezvousMessage::parse_from_bytes(bytes) {
             match msg_in.union {
                 Some(rendezvous_message::Union::PunchHoleRequest(ph)) => {
+                    log::debug!("connecting to id: {} from ip: {}",&ph.id, &addr.ip());
+                    let _ = self.pm.db.insert_log(&addr.ip().to_string(), &ph.id).await;
                     // there maybe several attempt, so sink can be none
                     if let Some(sink) = sink.take() {
                         self.tcp_punch.lock().await.insert(try_into_v4(addr), sink);
