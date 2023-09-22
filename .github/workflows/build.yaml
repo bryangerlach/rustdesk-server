@@ -200,7 +200,8 @@ jobs:
       - name: Create Release (${{ matrix.job.os }} - (${{ matrix.job.name }})
         uses: softprops/action-gh-release@v1
         with:
-          draft: true
+          prerelease: true
+          tag_name: nightly
           files: ${{ matrix.job.name }}/rustdesk-server-${{ matrix.job.os }}-${{ matrix.job.name }}.zip
             
   # docker build and push of single-arch images
