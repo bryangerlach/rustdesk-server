@@ -36,6 +36,7 @@ async fn hello(req: HttpRequest) -> impl Responder {
         <html>
             <head>
                 <title>Connected Devices</title>
+                <meta http-equiv="refresh" content="30" >
             </head>
             <body>
                 <style>
@@ -189,6 +190,7 @@ async fn log(req: HttpRequest) -> impl Responder {
         <html>
             <head>
                 <title>Connection Logs</title>
+                <meta http-equiv="refresh" content="30" >
             </head>
             <body>
                 <style>
