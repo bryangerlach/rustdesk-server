@@ -57,6 +57,7 @@ dns-lookup = "1.0.8"
 ping = "0.4.0"
 actix-web = "3.3.3"
 rust-argon2 = "2.0"
+time = "0.2"
 
 [build-dependencies]
 hbb_common = { path = "libs/hbb_common" }

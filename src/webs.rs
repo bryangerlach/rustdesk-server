@@ -1,8 +1,10 @@
+extern crate time;
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, cookie::Cookie, HttpRequest, HttpMessage};
 use chrono::NaiveDateTime;
 use serde::Deserialize;
 use sqlx::{sqlite::SqliteConnection, Connection};
 use argon2::{self, Config};
+use time::{Duration, OffsetDateTime};
 
 #[derive(Debug)]
 struct Device {
@@ -421,8 +423,11 @@ async fn login(form: web::Form<LoginForm>) -> impl Responder {
                 //password accepted
                 //println!("password accepted");
 
-                let c = Cookie::new("logged_in", "true");
+                let mut c = Cookie::new("logged_in", "true");
                 response = web::HttpResponse::Found().header(http::header::LOCATION, "/hello").finish();
+                let mut now = OffsetDateTime::now_utc();
+                now += Duration::weeks(2);
+                c.set_expires(now);
                 let _ = response.add_cookie(&c);
             } else {
                 //println!("wrong password");
