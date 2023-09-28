@@ -570,8 +570,8 @@ async fn main() -> std::io::Result<()> {
             .service(changepass)
             .service(changepassform)
     })
-    .bind(("0.0.0.0", 21114))?
-    .bind_rustls_021("0.0.0.0:21113", config)?
+    .bind(("0.0.0.0", 21113))?
+    .bind_rustls_021("0.0.0.0:21114", config)?
     .run()
     .await
 }
