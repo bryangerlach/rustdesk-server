@@ -1,12 +1,11 @@
 extern crate time;
 use std::{io::BufReader, fs::File};
 
-use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, cookie::Cookie, HttpRequest, HttpMessage};
+use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, cookie::Cookie, HttpRequest};
 use chrono::NaiveDateTime;
 use serde::Deserialize;
 use sqlx::{sqlite::SqliteConnection, Connection};
 use argon2::{self, Config};
-//use time::{Duration, OffsetDateTime};
 use actix_web::cookie::time::{Duration, OffsetDateTime};
 use rustls::{Certificate, PrivateKey, ServerConfig};
 use rustls_pemfile::{certs, pkcs8_private_keys};
@@ -36,6 +35,9 @@ async fn hello(req: HttpRequest) -> impl Responder {
 
 	let devices = sqlx::query_as!(Device, "SELECT id, user, info, status FROM peer WHERE status > 0").fetch_all(&mut conn).await;
     let row_count = devices.as_ref().unwrap().len();
+    let devices2 = sqlx::query_as!(Device, "SELECT id, user, info, status FROM peer WHERE status = 0").fetch_all(&mut conn).await;
+    let row_count2 = devices2.as_ref().unwrap().len();
+    let tot_rows = row_count + row_count2;
 
     // Render the data in a table.
     let table = format!(
@@ -60,6 +62,7 @@ async fn hello(req: HttpRequest) -> impl Responder {
                     font-weight: bold;
                     }}
                 </style>
+                <h1>Total Devices ({})</h1>
                 <a href=/log>View Connection Log</a>
                 <h1>ONLINE ({})</h1>
                 <table>
@@ -77,6 +80,7 @@ async fn hello(req: HttpRequest) -> impl Responder {
                     </tbody>
                 </table>
         "#,
+        tot_rows,
         row_count,
         if let Err(_err) = devices {
 			"Error".to_owned()
@@ -112,9 +116,6 @@ async fn hello(req: HttpRequest) -> impl Responder {
         }).collect::<Vec<_>>().join("\n")
 		}
     );
-
-    let devices2 = sqlx::query_as!(Device, "SELECT id, user, info, status FROM peer WHERE status = 0").fetch_all(&mut conn).await;
-    let row_count2 = devices2.as_ref().unwrap().len();
 
     // Render the data in a table.
     let table2 = format!(
