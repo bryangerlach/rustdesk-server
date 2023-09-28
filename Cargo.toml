@@ -55,9 +55,11 @@ ipnetwork = "0.20"
 local-ip-address = "0.5.1"
 dns-lookup = "1.0.8"
 ping = "0.4.0"
-actix-web = "3.3.3"
+actix-web = { version = "4", features = ["rustls-0_21"] }
 rust-argon2 = "2.0"
 time = "0.2"
+rustls = "0.21"
+rustls-pemfile = "1.0.3"
 
 [build-dependencies]
 hbb_common = { path = "libs/hbb_common" }

@@ -1,10 +1,15 @@
 extern crate time;
+use std::{io::BufReader, fs::File};
+
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, cookie::Cookie, HttpRequest, HttpMessage};
 use chrono::NaiveDateTime;
 use serde::Deserialize;
 use sqlx::{sqlite::SqliteConnection, Connection};
 use argon2::{self, Config};
-use time::{Duration, OffsetDateTime};
+//use time::{Duration, OffsetDateTime};
+use actix_web::cookie::time::{Duration, OffsetDateTime};
+use rustls::{Certificate, PrivateKey, ServerConfig};
+use rustls_pemfile::{certs, pkcs8_private_keys};
 
 #[derive(Debug)]
 struct Device {
@@ -270,7 +275,7 @@ async fn log(req: HttpRequest) -> impl Responder {
 async fn login_form(req: HttpRequest) -> impl Responder {
     if !check_login(req) {
         // Create a response with the login screen HTML
-        return web::HttpResponse::build(http::StatusCode::OK)
+        return HttpResponse::build(http::StatusCode::OK)
             .set_header(http::header::CONTENT_TYPE, "text/html")
             .body(r#"
                 <html>
@@ -304,7 +309,7 @@ async fn rename(form: web::Form<RenameForm>, req: HttpRequest) -> impl Responder
     let mut conn = get_conn().await;
     let _query = sqlx::query!("UPDATE peer SET user = ? WHERE id = ?",newname,id).fetch_all(&mut conn).await.unwrap();
     conn.close();
-    web::HttpResponse::Found().header(http::header::LOCATION, "/hello").finish()
+    HttpResponse::Found().header(http::header::LOCATION, "/hello").finish()
 }
 
 #[post("/delete")]
@@ -317,12 +322,12 @@ async fn delete(form: web::Form<DeleteForm>, req: HttpRequest) -> impl Responder
     let mut conn = get_conn().await;
     let _query = sqlx::query!("DELETE FROM peer WHERE id = ?",id).fetch_all(&mut conn).await.unwrap();
     conn.close();
-    web::HttpResponse::Found().header(http::header::LOCATION, "/hello").finish()
+    HttpResponse::Found().header(http::header::LOCATION, "/hello").finish()
 }
 
 #[get("/logout")]
 async fn logout() -> impl Responder {
-    let mut response = web::HttpResponse::build(http::StatusCode::OK)
+    let mut response = HttpResponse::build(http::StatusCode::OK)
     .set_header(http::header::CONTENT_TYPE, "text/html")
     .body(r#"
         <html>
@@ -349,7 +354,7 @@ async fn changepassform(req: HttpRequest) -> impl Responder {
     if !check_login(req) {
         return HttpResponse::Found().header(http::header::LOCATION, "/").finish();
     }
-    let response = web::HttpResponse::build(http::StatusCode::OK)
+    let response = HttpResponse::build(http::StatusCode::OK)
     .set_header(http::header::CONTENT_TYPE, "text/html")
     .body(r#"
         <html>
@@ -383,7 +388,7 @@ async fn changepass(form: web::Form<ChangeForm>, req: HttpRequest) -> impl Respo
         .await;
     conn.close();
 
-    let mut response = web::HttpResponse::build(http::StatusCode::OK)
+    let mut response = HttpResponse::build(http::StatusCode::OK)
     .set_header(http::header::CONTENT_TYPE, "text/html")
     .body(r#"
         <html>
@@ -416,7 +421,7 @@ async fn login(form: web::Form<LoginForm>) -> impl Responder {
     let db_password = query.first().unwrap();
     let db_password_string = &db_password.password;
     conn.close();
-    let mut response = web::HttpResponse::Found().header(http::header::LOCATION, "/").finish();
+    let mut response = HttpResponse::Found().header(http::header::LOCATION, "/").finish();
     match argon2::verify_encoded(&db_password_string, &password.as_bytes()) {
         Ok(is_valid_password) => {
             if is_valid_password {
@@ -424,7 +429,7 @@ async fn login(form: web::Form<LoginForm>) -> impl Responder {
                 //println!("password accepted");
 
                 let mut c = Cookie::new("logged_in", "true");
-                response = web::HttpResponse::Found().header(http::header::LOCATION, "/hello").finish();
+                response = HttpResponse::Found().header(http::header::LOCATION, "/hello").finish();
                 let mut now = OffsetDateTime::now_utc();
                 now += Duration::weeks(2);
                 c.set_expires(now);
@@ -503,6 +508,37 @@ async fn get_conn() -> SqliteConnection {
     return conn;
 }
 
+fn load_rustls_config() -> rustls::ServerConfig {
+    // init server config builder with safe defaults
+    let config = ServerConfig::builder()
+        .with_safe_defaults()
+        .with_no_client_auth();
+
+    // load TLS key/cert files
+    let cert_file = &mut BufReader::new(File::open("cert.pem").unwrap());
+    let key_file = &mut BufReader::new(File::open("key.pem").unwrap());
+
+    // convert files to key/cert objects
+    let cert_chain = certs(cert_file)
+        .unwrap()
+        .into_iter()
+        .map(Certificate)
+        .collect();
+    let mut keys: Vec<PrivateKey> = pkcs8_private_keys(key_file)
+        .unwrap()
+        .into_iter()
+        .map(PrivateKey)
+        .collect();
+
+    // exit if no keys could be parsed
+    if keys.is_empty() {
+        eprintln!("Could not locate PKCS 8 private keys.");
+        std::process::exit(1);
+    }
+
+    config.with_single_cert(cert_chain, keys.remove(0)).unwrap()
+}
+
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
 	let mut conn = get_conn().await;
@@ -521,6 +557,7 @@ async fn main() -> std::io::Result<()> {
         .execute(&mut conn)
         .await;
     conn.close();
+    let config = load_rustls_config();
     HttpServer::new(|| {
         App::new()
             .service(hello)
@@ -534,6 +571,7 @@ async fn main() -> std::io::Result<()> {
             .service(changepassform)
     })
     .bind(("0.0.0.0", 21114))?
+    .bind_rustls_021("0.0.0.0:21113", config)?
     .run()
     .await
 }
