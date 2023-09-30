@@ -33,9 +33,9 @@ async fn hello(req: HttpRequest) -> impl Responder {
     }
 	let mut conn = get_conn().await;
 
-	let devices = sqlx::query_as!(Device, "SELECT id, user, info, status FROM peer WHERE status > 0").fetch_all(&mut conn).await;
+	let devices = sqlx::query_as!(Device, "SELECT id, user, info, status FROM peer WHERE status > 0 ORDER BY user").fetch_all(&mut conn).await;
     let row_count = devices.as_ref().unwrap().len();
-    let devices2 = sqlx::query_as!(Device, "SELECT id, user, info, status FROM peer WHERE status = 0").fetch_all(&mut conn).await;
+    let devices2 = sqlx::query_as!(Device, "SELECT id, user, info, status FROM peer WHERE status = 0 ORDER BY user").fetch_all(&mut conn).await;
     let row_count2 = devices2.as_ref().unwrap().len();
     let tot_rows = row_count + row_count2;
 
