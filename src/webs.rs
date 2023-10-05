@@ -2,6 +2,7 @@ extern crate time;
 use std::{io::BufReader, fs::File};
 
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, cookie::Cookie, HttpRequest};
+use axum::BoxError;
 use chrono::NaiveDateTime;
 use serde::Deserialize;
 use sqlx::{sqlite::SqliteConnection, Connection};
@@ -509,11 +510,20 @@ async fn get_conn() -> SqliteConnection {
     return conn;
 }
 
-fn load_rustls_config() -> rustls::ServerConfig {
+fn load_rustls_config() -> Result<rustls::ServerConfig, String> {
     // init server config builder with safe defaults
     let config = ServerConfig::builder()
         .with_safe_defaults()
         .with_no_client_auth();
+
+    // check if cert.pem and key.pem exist
+    let cert_file_exists = File::open("cert.pem").is_ok();
+    let key_file_exists = File::open("key.pem").is_ok();
+
+    // if either file does not exist, return an empty config
+    if !cert_file_exists || !key_file_exists {
+        return Err("Could not locate cert.pem or key.pem.".to_string());
+    }
 
     // load TLS key/cert files
     let cert_file = &mut BufReader::new(File::open("cert.pem").unwrap());
@@ -537,7 +547,7 @@ fn load_rustls_config() -> rustls::ServerConfig {
         std::process::exit(1);
     }
 
-    config.with_single_cert(cert_chain, keys.remove(0)).unwrap()
+    Ok(config.with_single_cert(cert_chain, keys.remove(0)).unwrap())
 }
 
 #[actix_web::main]
@@ -559,20 +569,42 @@ async fn main() -> std::io::Result<()> {
         .await;
     conn.close();
     let config = load_rustls_config();
-    HttpServer::new(|| {
-        App::new()
-            .service(hello)
-            .service(login_form)
-            .service(login)
-            .service(rename)
-            .service(delete)
-            .service(log)
-            .service(logout)
-            .service(changepass)
-            .service(changepassform)
-    })
-    .bind(("0.0.0.0", 21113))?
-    .bind_rustls_021("0.0.0.0:21114", config)?
-    .run()
-    .await
+
+    match config {
+        Ok(config) => {
+            HttpServer::new(|| {
+                App::new()
+                    .service(hello)
+                    .service(login_form)
+                    .service(login)
+                    .service(rename)
+                    .service(delete)
+                    .service(log)
+                    .service(logout)
+                    .service(changepass)
+                    .service(changepassform)
+            })
+            .bind_rustls_021("0.0.0.0:21114", config)?
+            .run()
+            .await
+        }
+        Err(_error_message) => {
+            HttpServer::new(|| {
+                App::new()
+                    .service(hello)
+                    .service(login_form)
+                    .service(login)
+                    .service(rename)
+                    .service(delete)
+                    .service(log)
+                    .service(logout)
+                    .service(changepass)
+                    .service(changepassform)
+            })
+            .bind(("0.0.0.0", 21114))?
+            .run()
+            .await
+        }
+    }
+    
 }
