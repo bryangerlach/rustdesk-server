@@ -2,7 +2,7 @@ extern crate time;
 use std::{io::BufReader, fs::File};
 
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, cookie::Cookie, HttpRequest};
-use chrono::NaiveDateTime;
+use chrono::{NaiveDateTime, Local, TimeZone, DateTime, Datelike, Timelike};
 use serde::Deserialize;
 use sqlx::{sqlite::SqliteConnection, Connection};
 use argon2::{self, Config};
@@ -83,7 +83,8 @@ struct Device {
     id: String,
     user: Option<Vec<u8>>,
     info: String,
-    status: Option<i64>
+    status: Option<i64>,
+    created_at: NaiveDateTime
 }
 
 #[derive(Debug)]
@@ -101,9 +102,9 @@ async fn home(req: HttpRequest) -> impl Responder {
     }
 	let mut conn = get_conn().await;
 
-	let devices = sqlx::query_as!(Device, "SELECT id, user, info, status FROM peer WHERE status > 0 ORDER BY user").fetch_all(&mut conn).await;
+	let devices = sqlx::query_as!(Device, "SELECT id, user, info, status, created_at FROM peer WHERE status > 0 ORDER BY user").fetch_all(&mut conn).await;
     let row_count = devices.as_ref().unwrap().len();
-    let devices2 = sqlx::query_as!(Device, "SELECT id, user, info, status FROM peer WHERE status = 0 ORDER BY user").fetch_all(&mut conn).await;
+    let devices2 = sqlx::query_as!(Device, "SELECT id, user, info, status, created_at FROM peer WHERE status = 0 ORDER BY user").fetch_all(&mut conn).await;
     let row_count2 = devices2.as_ref().unwrap().len();
     let tot_rows = row_count + row_count2;
 
@@ -177,6 +178,7 @@ async fn home(req: HttpRequest) -> impl Responder {
                             <th>Device Name</th>
                             <th>Info</th>
                             <th>Status</th>
+                            <th>Last Online</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -189,12 +191,14 @@ async fn home(req: HttpRequest) -> impl Responder {
 			"Error".to_owned()
 		} else {
 			devices2.unwrap().iter().map(|device| {
+                let date_time: String = get_local_datetime(device.created_at);
             format!(
                 r#"
                     <tr>
                         <td>{}</td>
                         <td>{}</td>
                         <td>{}</td>
+                        <td>{:?}</td>
                         <td>{:?}</td>
                         <td>
                             <form action="/rename" method="post">
@@ -218,6 +222,7 @@ async fn home(req: HttpRequest) -> impl Responder {
                 },
                 device.info,
                 device.status.unwrap(),
+                date_time,
                 device.id,
                 device.id,
             )
@@ -599,6 +604,15 @@ fn load_rustls_config() -> Result<rustls::ServerConfig, String> {
     }
 
     Ok(config.with_single_cert(cert_chain, keys.remove(0)).unwrap())
+}
+
+fn get_local_datetime(created_at: NaiveDateTime) -> String {
+    let date_time = Local.from_utc_datetime(&created_at);
+    let (is_pm, hour) = date_time.hour12();
+    let date_string = format!("{}-{:02}-{:02}  ({}) {:02}:{:02} {}",
+        date_time.year(),date_time.month(),date_time.day(),date_time.weekday(),
+        hour, date_time.minute(),if is_pm { "PM" } else { "AM" });
+    date_string
 }
 
 #[actix_web::main]

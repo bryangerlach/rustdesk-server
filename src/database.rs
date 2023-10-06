@@ -167,13 +167,23 @@ impl Database {
         peer_id: &str,
         status: &u8,
     ) -> ResultType<()> {
-        sqlx::query!(
-            "update peer set status=? where id=?",
-            status,
-            peer_id
-        )
-        .execute(self.pool.get().await?.deref_mut())
-        .await?;
+        if status != &0 {
+            sqlx::query!(
+                "update peer set status=?, created_at=current_timestamp where id=?",
+                status,
+                peer_id
+            )
+            .execute(self.pool.get().await?.deref_mut())
+            .await?;
+        } else {
+            sqlx::query!(
+                "update peer set status=? where id=?",
+                status,
+                peer_id
+            )
+            .execute(self.pool.get().await?.deref_mut())
+            .await?;
+        }
         Ok(())
     }
 
