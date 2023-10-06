@@ -2,7 +2,6 @@ extern crate time;
 use std::{io::BufReader, fs::File};
 
 use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, cookie::Cookie, HttpRequest};
-use axum::BoxError;
 use chrono::NaiveDateTime;
 use serde::Deserialize;
 use sqlx::{sqlite::SqliteConnection, Connection};
@@ -10,6 +9,74 @@ use argon2::{self, Config};
 use actix_web::cookie::time::{Duration, OffsetDateTime};
 use rustls::{Certificate, PrivateKey, ServerConfig};
 use rustls_pemfile::{certs, pkcs8_private_keys};
+
+//<meta http-equiv="refresh" content="30" >
+static HTML_MENU: &str = r#"<!DOCTYPE html>
+<html>
+<head>
+  <title>Rustdesk Admin Console</title>
+  
+</head>
+<body>
+<style>
+    nav {
+        background-color: #2c8cff;
+        overflow: hidden;
+    }
+    nav h1 {
+        padding-left: 16px;
+        color: white;
+    }
+    nav a {
+        flex: 1;
+        float: left;
+        color: white;
+        text-align: center;
+        padding: 14px 16px;
+        text-decoration: none;
+        font-size: 17px;
+    }
+
+    nav ul {
+        list-style-type: none;
+        display: flex;
+    }
+    
+    nav a:hover {
+        background-color: #ddd;
+        color: black;
+    }
+    
+    nav a.active {
+        background-color: #04AA6D;
+        color: white;
+    }
+
+    table {
+        border-collapse: collapse;
+        padding-left: 16px;
+    }
+
+    th, td {
+        border: 1px solid black;
+        padding: 5px;
+    }
+
+    th {
+        font-weight: bold;
+    }
+</style>
+
+  <nav>
+    <h1>Rustdesk Admin Console</h1>
+    <ul>
+      <li><a href="/home">Devices</a></li>
+      <li><a href="/log">Connection Log</a></li>
+      <li><a href="/install">Install Scripts</a></li>
+      <li><a href="/changepassform">Change Password</a></li>
+      <li><a href="/logout">Logout</a></li>
+    </ul>
+  </nav>"#;
 
 #[derive(Debug)]
 struct Device {
@@ -27,8 +94,8 @@ struct Logs {
     user: Option<Vec<u8>>
 }
 
-#[get("/hello")]
-async fn hello(req: HttpRequest) -> impl Responder {
+#[get("/home")]
+async fn home(req: HttpRequest) -> impl Responder {
     if !check_login(req) {
         return HttpResponse::Found().header(http::header::LOCATION, "/").finish();
     }
@@ -43,28 +110,8 @@ async fn hello(req: HttpRequest) -> impl Responder {
     // Render the data in a table.
     let table = format!(
         r#"
-        <html>
-            <head>
-                <title>Connected Devices</title>
-                <meta http-equiv="refresh" content="30" >
-            </head>
-            <body>
-                <style>
-                    table {{
-                    border-collapse: collapse;
-                    }}
-                
-                    th, td {{
-                    border: 1px solid black;
-                    padding: 5px;
-                    }}
-                
-                    th {{
-                    font-weight: bold;
-                    }}
-                </style>
+        {}
                 <h1>Total Devices ({})</h1>
-                <a href=/log>View Connection Log</a>
                 <h1>ONLINE ({})</h1>
                 <table>
                     <thead>
@@ -81,6 +128,7 @@ async fn hello(req: HttpRequest) -> impl Responder {
                     </tbody>
                 </table>
         "#,
+        HTML_MENU,
         tot_rows,
         row_count,
         if let Err(_err) = devices {
@@ -135,8 +183,6 @@ async fn hello(req: HttpRequest) -> impl Responder {
                         {}
                     </tbody>
                 </table>
-                <p><button onclick="location.href='/logout';">Logout</button></p>
-                <p><button onclick="location.href='/changepassform';">Change Admin Password</button></p>
         "#,
         row_count2,
         if let Err(_err) = devices2 {
@@ -183,7 +229,6 @@ async fn hello(req: HttpRequest) -> impl Responder {
 
     // Return the response.
     HttpResponse::Ok().body(table+&table2)
-    //HttpResponse::Ok().body("Hello world!")
 }
 
 #[get("/log")]
@@ -197,27 +242,7 @@ async fn log(req: HttpRequest) -> impl Responder {
     // Render the data in a table.
     let table = format!(
         r#"
-        <html>
-            <head>
-                <title>Connection Logs</title>
-                <meta http-equiv="refresh" content="30" >
-            </head>
-            <body>
-                <style>
-                    table {{
-                    border-collapse: collapse;
-                    }}
-                
-                    th, td {{
-                    border: 1px solid black;
-                    padding: 5px;
-                    }}
-                
-                    th {{
-                    font-weight: bold;
-                    }}
-                </style>
-                <a href=/hello>View Connected Devices</a>
+        {}
                 <h1>Connection Log</h1>
                 <table>
                     <thead>
@@ -233,6 +258,7 @@ async fn log(req: HttpRequest) -> impl Responder {
                     </tbody>
                 </table>
         "#,
+        HTML_MENU,
         if let Err(_err) = logs {
 			"Error".to_owned()
 		} else {
@@ -279,12 +305,8 @@ async fn login_form(req: HttpRequest) -> impl Responder {
         // Create a response with the login screen HTML
         return HttpResponse::build(http::StatusCode::OK)
             .set_header(http::header::CONTENT_TYPE, "text/html")
-            .body(r#"
-                <html>
-                    <head>
-                        <title>Login</title>
-                    </head>
-                    <body>
+            .body(format!(r#"
+                {}
                         <h1>Login</h1>
                         <form action="/login" method="post">
                             <input type="text" name="username" placeholder="Username">
@@ -293,9 +315,10 @@ async fn login_form(req: HttpRequest) -> impl Responder {
                         </form>
                     </body>
                 </html>
-            "#);
+            "#,
+            HTML_MENU));
     } else {
-        return HttpResponse::Found().header(http::header::LOCATION, "/hello").finish();
+        return HttpResponse::Found().header(http::header::LOCATION, "/home").finish();
     }
         //response
 }
@@ -311,7 +334,7 @@ async fn rename(form: web::Form<RenameForm>, req: HttpRequest) -> impl Responder
     let mut conn = get_conn().await;
     let _query = sqlx::query!("UPDATE peer SET user = ? WHERE id = ?",newname,id).fetch_all(&mut conn).await.unwrap();
     conn.close();
-    HttpResponse::Found().header(http::header::LOCATION, "/hello").finish()
+    HttpResponse::Found().header(http::header::LOCATION, "/home").finish()
 }
 
 #[post("/delete")]
@@ -324,19 +347,15 @@ async fn delete(form: web::Form<DeleteForm>, req: HttpRequest) -> impl Responder
     let mut conn = get_conn().await;
     let _query = sqlx::query!("DELETE FROM peer WHERE id = ?",id).fetch_all(&mut conn).await.unwrap();
     conn.close();
-    HttpResponse::Found().header(http::header::LOCATION, "/hello").finish()
+    HttpResponse::Found().header(http::header::LOCATION, "/home").finish()
 }
 
 #[get("/logout")]
 async fn logout() -> impl Responder {
     let mut response = HttpResponse::build(http::StatusCode::OK)
     .set_header(http::header::CONTENT_TYPE, "text/html")
-    .body(r#"
-        <html>
-            <head>
-                <title>Logged Out</title>
-            </head>
-            <body>
+    .body(format!(r#"
+        {}
                 <h1>You are Logged Out</h1>
                 <form action="/login" method="post">
                     <input type="text" name="username" placeholder="Username">
@@ -345,9 +364,47 @@ async fn logout() -> impl Responder {
                 </form>
             </body>
         </html>
-    "#);
+    "#,HTML_MENU));
     let c = Cookie::new("logged_in", "false");
     let _ = response.add_cookie(&c);
+    response
+}
+
+#[get("/https")]
+async fn https(req: HttpRequest) -> impl Responder {
+    if !check_login(req) {
+        return HttpResponse::Found().header(http::header::LOCATION, "/").finish();
+    }
+    let response = HttpResponse::build(http::StatusCode::OK)
+    .set_header(http::header::CONTENT_TYPE, "text/html")
+    .body(format!(r#"
+        {}
+                <h1>Insctructions to set up https</h1>
+                <p>To use https you need to copy your server's key.pem and cert.pem files to the same location as the webs executable file.</p>
+            </body>
+        </html>
+    "#,HTML_MENU));
+    
+    response
+}
+
+#[get("/install")]
+async fn install(req: HttpRequest) -> impl Responder {
+    if !check_login(req) {
+        return HttpResponse::Found().header(http::header::LOCATION, "/").finish();
+    }
+    let response = HttpResponse::build(http::StatusCode::OK)
+    .set_header(http::header::CONTENT_TYPE, "text/html")
+    .body(format!(r#"
+        {}
+                <h1>Download the appropriate install script</h1>
+                <a href="WindowsAgentAIOInstall.ps1">Windows</a>
+                <br>
+                <a href="linuxclientinstall.sh">Linux</a>
+            </body>
+        </html>
+    "#,HTML_MENU));
+    
     response
 }
 
@@ -358,12 +415,8 @@ async fn changepassform(req: HttpRequest) -> impl Responder {
     }
     let response = HttpResponse::build(http::StatusCode::OK)
     .set_header(http::header::CONTENT_TYPE, "text/html")
-    .body(r#"
-        <html>
-            <head>
-                <title>Set New Password</title>
-            </head>
-            <body>
+    .body(format!(r#"
+        {}
                 <h1>Set New Password</h1>
                 <form action="/changepass" method="post">
                     <input type="password" name="newpass" placeholder="Password">
@@ -371,7 +424,7 @@ async fn changepassform(req: HttpRequest) -> impl Responder {
                 </form>
             </body>
         </html>
-    "#);
+    "#,HTML_MENU));
     
     response
 }
@@ -392,12 +445,8 @@ async fn changepass(form: web::Form<ChangeForm>, req: HttpRequest) -> impl Respo
 
     let mut response = HttpResponse::build(http::StatusCode::OK)
     .set_header(http::header::CONTENT_TYPE, "text/html")
-    .body(r#"
-        <html>
-            <head>
-                <title>Password Changed, Please Log In</title>
-            </head>
-            <body>
+    .body(format!(r#"
+        {}
                 <h1>Password Changed, Please Log In</h1>
                 <form action="/login" method="post">
                     <input type="text" name="username" placeholder="Username">
@@ -406,7 +455,7 @@ async fn changepass(form: web::Form<ChangeForm>, req: HttpRequest) -> impl Respo
                 </form>
             </body>
         </html>
-    "#);
+    "#,HTML_MENU));
     let c = Cookie::new("logged_in", "false");
     let _ = response.add_cookie(&c);
     response
@@ -420,29 +469,31 @@ async fn login(form: web::Form<LoginForm>) -> impl Responder {
     let username = &form.username;
     let password = &form.password;
 	let query = sqlx::query!("SELECT password FROM users WHERE username = ?",username).fetch_all(&mut conn).await.unwrap();
-    let db_password = query.first().unwrap();
-    let db_password_string = &db_password.password;
-    conn.close();
     let mut response = HttpResponse::Found().header(http::header::LOCATION, "/").finish();
-    match argon2::verify_encoded(&db_password_string, &password.as_bytes()) {
-        Ok(is_valid_password) => {
-            if is_valid_password {
-                //password accepted
-                //println!("password accepted");
+    if query.len() > 0 {
+        let db_password = query.first().unwrap();
+        let db_password_string = &db_password.password;
+        conn.close();
+        match argon2::verify_encoded(&db_password_string, &password.as_bytes()) {
+            Ok(is_valid_password) => {
+                if is_valid_password {
+                    //password accepted
+                    //println!("password accepted");
 
-                let mut c = Cookie::new("logged_in", "true");
-                response = HttpResponse::Found().header(http::header::LOCATION, "/hello").finish();
-                let mut now = OffsetDateTime::now_utc();
-                now += Duration::weeks(2);
-                c.set_expires(now);
-                let _ = response.add_cookie(&c);
-            } else {
-                //println!("wrong password");
+                    let mut c = Cookie::new("logged_in", "true");
+                    response = HttpResponse::Found().header(http::header::LOCATION, "/home").finish();
+                    let mut now = OffsetDateTime::now_utc();
+                    now += Duration::weeks(2);
+                    c.set_expires(now);
+                    let _ = response.add_cookie(&c);
+                } else {
+                    //println!("wrong password");
+                }
             }
-        }
-        Err(_error) => {
-            //handle error
-            //println!("error verifying password: {}", error);
+            Err(_error) => {
+                //handle error
+                //println!("error verifying password: {}", error);
+            }
         }
     }
     
@@ -574,7 +625,7 @@ async fn main() -> std::io::Result<()> {
         Ok(config) => {
             HttpServer::new(|| {
                 App::new()
-                    .service(hello)
+                    .service(home)
                     .service(login_form)
                     .service(login)
                     .service(rename)
@@ -583,6 +634,8 @@ async fn main() -> std::io::Result<()> {
                     .service(logout)
                     .service(changepass)
                     .service(changepassform)
+                    .service(install)
+                    .service(https)
             })
             .bind_rustls_021("0.0.0.0:21114", config)?
             .run()
@@ -591,7 +644,7 @@ async fn main() -> std::io::Result<()> {
         Err(_error_message) => {
             HttpServer::new(|| {
                 App::new()
-                    .service(hello)
+                    .service(home)
                     .service(login_form)
                     .service(login)
                     .service(rename)
@@ -600,6 +653,8 @@ async fn main() -> std::io::Result<()> {
                     .service(logout)
                     .service(changepass)
                     .service(changepassform)
+                    .service(install)
+                    .service(https)
             })
             .bind(("0.0.0.0", 21114))?
             .run()
