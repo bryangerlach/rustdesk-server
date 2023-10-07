@@ -14,7 +14,7 @@ fi
 
 sudo systemctl stop rustdesksignal.service
 sudo systemctl stop rustdeskrelay.service
-sudo systemctl stop rustdeskwebs.service
+sudo systemctl stop rustdeskweb.service
 
 ARCH=$(uname -m)
 
@@ -115,7 +115,7 @@ fi
 
 sudo systemctl start rustdesksignal.service
 sudo systemctl start rustdeskrelay.service
-sudo systemctl start rustdeskwebs.service
+sudo systemctl start rustdeskweb.service
 
 while ! [[ $CHECK_RUSTDESK_READY ]]; do
   CHECK_RUSTDESK_READY=$(sudo systemctl status rustdeskrelay.service | grep "Active: active (running)")

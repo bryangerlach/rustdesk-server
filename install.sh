@@ -271,10 +271,10 @@ RestartSec=10
 WantedBy=multi-user.target
 EOF
 )"
-echo "${rustdeskwebs}" | sudo tee /etc/systemd/system/rustdeskwebs.service > /dev/null
+echo "${rustdeskwebs}" | sudo tee /etc/systemd/system/rustdeskweb.service > /dev/null
 sudo systemctl daemon-reload
-sudo systemctl enable rustdeskwebs.service
-sudo systemctl start rustdeskwebs.service
+sudo systemctl enable rustdeskweb.service
+sudo systemctl start rustdeskweb.service
 
 while ! [[ $CHECK_RUSTDESK_READY ]]; do
   CHECK_RUSTDESK_READY=$(sudo systemctl status rustdeskrelay.service | grep "Active: active (running)")
