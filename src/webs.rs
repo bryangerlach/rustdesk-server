@@ -1,21 +1,21 @@
 extern crate time;
-use std::{io::BufReader, fs::File};
+use std::{io::BufReader, fs::File, path::PathBuf};
 
-use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, cookie::Cookie, HttpRequest};
-use chrono::{NaiveDateTime, Local, TimeZone, DateTime, Datelike, Timelike};
+use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, cookie::Cookie, HttpRequest, http::Error, Result};
+use chrono::{NaiveDateTime, Datelike, Timelike};
 use serde::Deserialize;
 use sqlx::{sqlite::SqliteConnection, Connection};
 use argon2::{self, Config};
 use actix_web::cookie::time::{Duration, OffsetDateTime};
+use actix_files::NamedFile;
 use rustls::{Certificate, PrivateKey, ServerConfig};
 use rustls_pemfile::{certs, pkcs8_private_keys};
 
-//<meta http-equiv="refresh" content="30" >
 static HTML_MENU: &str = r#"<!DOCTYPE html>
 <html>
 <head>
   <title>Rustdesk Admin Console</title>
-  
+  <meta http-equiv="refresh" content="120" >
 </head>
 <body>
 <style>
@@ -98,7 +98,7 @@ struct Logs {
 #[get("/home")]
 async fn home(req: HttpRequest) -> impl Responder {
     if !check_login(req) {
-        return HttpResponse::Found().header(http::header::LOCATION, "/").finish();
+        return HttpResponse::Found().append_header((http::header::LOCATION, "/")).finish();
     }
 	let mut conn = get_conn().await;
 
@@ -239,7 +239,7 @@ async fn home(req: HttpRequest) -> impl Responder {
 #[get("/log")]
 async fn log(req: HttpRequest) -> impl Responder {
     if !check_login(req) {
-        return HttpResponse::Found().header(http::header::LOCATION, "/").finish();
+        return HttpResponse::Found().append_header((http::header::LOCATION, "/")).finish();
     }
     let mut conn = get_conn().await;
 
@@ -309,7 +309,7 @@ async fn login_form(req: HttpRequest) -> impl Responder {
     if !check_login(req) {
         // Create a response with the login screen HTML
         return HttpResponse::build(http::StatusCode::OK)
-            .set_header(http::header::CONTENT_TYPE, "text/html")
+            .insert_header((http::header::CONTENT_TYPE, "text/html"))
             .body(format!(r#"
                 {}
                         <h1>Login</h1>
@@ -323,7 +323,7 @@ async fn login_form(req: HttpRequest) -> impl Responder {
             "#,
             HTML_MENU));
     } else {
-        return HttpResponse::Found().header(http::header::LOCATION, "/home").finish();
+        return HttpResponse::Found().append_header((http::header::LOCATION, "/home")).finish();
     }
         //response
 }
@@ -331,7 +331,7 @@ async fn login_form(req: HttpRequest) -> impl Responder {
 #[post("/rename")]
 async fn rename(form: web::Form<RenameForm>, req: HttpRequest) -> impl Responder {
     if !check_login(req) {
-        return HttpResponse::Found().header(http::header::LOCATION, "/").finish();
+        return HttpResponse::Found().append_header((http::header::LOCATION, "/")).finish();
     }
     let id = &form.id;
     let newname = &form.newname;
@@ -339,26 +339,26 @@ async fn rename(form: web::Form<RenameForm>, req: HttpRequest) -> impl Responder
     let mut conn = get_conn().await;
     let _query = sqlx::query!("UPDATE peer SET user = ? WHERE id = ?",newname,id).fetch_all(&mut conn).await.unwrap();
     conn.close();
-    HttpResponse::Found().header(http::header::LOCATION, "/home").finish()
+    HttpResponse::Found().append_header((http::header::LOCATION, "/home")).finish()
 }
 
 #[post("/delete")]
 async fn delete(form: web::Form<DeleteForm>, req: HttpRequest) -> impl Responder {
     if !check_login(req) {
-        return HttpResponse::Found().header(http::header::LOCATION, "/").finish();
+        return HttpResponse::Found().append_header((http::header::LOCATION, "/")).finish();
     }
     let id = &form.id;
     
     let mut conn = get_conn().await;
     let _query = sqlx::query!("DELETE FROM peer WHERE id = ?",id).fetch_all(&mut conn).await.unwrap();
     conn.close();
-    HttpResponse::Found().header(http::header::LOCATION, "/home").finish()
+    HttpResponse::Found().append_header((http::header::LOCATION, "/home")).finish()
 }
 
 #[get("/logout")]
 async fn logout() -> impl Responder {
     let mut response = HttpResponse::build(http::StatusCode::OK)
-    .set_header(http::header::CONTENT_TYPE, "text/html")
+    .insert_header((http::header::CONTENT_TYPE, "text/html"))
     .body(format!(r#"
         {}
                 <h1>You are Logged Out</h1>
@@ -378,10 +378,10 @@ async fn logout() -> impl Responder {
 #[get("/https")]
 async fn https(req: HttpRequest) -> impl Responder {
     if !check_login(req) {
-        return HttpResponse::Found().header(http::header::LOCATION, "/").finish();
+        return HttpResponse::Found().append_header((http::header::LOCATION, "/")).finish();
     }
     let response = HttpResponse::build(http::StatusCode::OK)
-    .set_header(http::header::CONTENT_TYPE, "text/html")
+    .insert_header((http::header::CONTENT_TYPE, "text/html"))
     .body(format!(r#"
         {}
                 <h1>Insctructions to set up https</h1>
@@ -396,10 +396,10 @@ async fn https(req: HttpRequest) -> impl Responder {
 #[get("/install")]
 async fn install(req: HttpRequest) -> impl Responder {
     if !check_login(req) {
-        return HttpResponse::Found().header(http::header::LOCATION, "/").finish();
+        return HttpResponse::Found().append_header((http::header::LOCATION, "/")).finish();
     }
     let response = HttpResponse::build(http::StatusCode::OK)
-    .set_header(http::header::CONTENT_TYPE, "text/html")
+    .insert_header((http::header::CONTENT_TYPE, "text/html"))
     .body(format!(r#"
         {}
                 <h1>Download the appropriate install script</h1>
@@ -413,13 +413,18 @@ async fn install(req: HttpRequest) -> impl Responder {
     response
 }
 
+async fn download(req: HttpRequest) -> Result<NamedFile> {
+    let path: PathBuf = req.match_info().query("filename").parse().unwrap();
+    Ok(NamedFile::open(path)?)
+}
+
 #[get("/changepassform")]
 async fn changepassform(req: HttpRequest) -> impl Responder {
     if !check_login(req) {
-        return HttpResponse::Found().header(http::header::LOCATION, "/").finish();
+        return HttpResponse::Found().append_header((http::header::LOCATION, "/")).finish();
     }
     let response = HttpResponse::build(http::StatusCode::OK)
-    .set_header(http::header::CONTENT_TYPE, "text/html")
+    .insert_header((http::header::CONTENT_TYPE, "text/html"))
     .body(format!(r#"
         {}
                 <h1>Set New Password</h1>
@@ -437,7 +442,7 @@ async fn changepassform(req: HttpRequest) -> impl Responder {
 #[post("/changepass")]
 async fn changepass(form: web::Form<ChangeForm>, req: HttpRequest) -> impl Responder {
     if !check_login(req) {
-        return HttpResponse::Found().header(http::header::LOCATION, "/").finish();
+        return HttpResponse::Found().append_header((http::header::LOCATION, "/")).finish();
     }
     let mut conn = get_conn().await;
     let salt = b"adoi8320jjfslk09992jjnl09";
@@ -449,7 +454,7 @@ async fn changepass(form: web::Form<ChangeForm>, req: HttpRequest) -> impl Respo
     conn.close();
 
     let mut response = HttpResponse::build(http::StatusCode::OK)
-    .set_header(http::header::CONTENT_TYPE, "text/html")
+    .insert_header((http::header::CONTENT_TYPE, "text/html"))
     .body(format!(r#"
         {}
                 <h1>Password Changed, Please Log In</h1>
@@ -474,7 +479,7 @@ async fn login(form: web::Form<LoginForm>) -> impl Responder {
     let username = &form.username;
     let password = &form.password;
 	let query = sqlx::query!("SELECT password FROM users WHERE username = ?",username).fetch_all(&mut conn).await.unwrap();
-    let mut response = HttpResponse::Found().header(http::header::LOCATION, "/").finish();
+    let mut response = HttpResponse::Found().append_header((http::header::LOCATION, "/")).finish();
     if query.len() > 0 {
         let db_password = query.first().unwrap();
         let db_password_string = &db_password.password;
@@ -483,21 +488,21 @@ async fn login(form: web::Form<LoginForm>) -> impl Responder {
             Ok(is_valid_password) => {
                 if is_valid_password {
                     //password accepted
-                    //println!("password accepted");
+                    println!("password accepted");
 
                     let mut c = Cookie::new("logged_in", "true");
-                    response = HttpResponse::Found().header(http::header::LOCATION, "/home").finish();
+                    response = HttpResponse::Found().append_header((http::header::LOCATION, "/home")).finish();
                     let mut now = OffsetDateTime::now_utc();
                     now += Duration::weeks(2);
                     c.set_expires(now);
                     let _ = response.add_cookie(&c);
                 } else {
-                    //println!("wrong password");
+                    println!("wrong password");
                 }
             }
-            Err(_error) => {
+            Err(error) => {
                 //handle error
-                //println!("error verifying password: {}", error);
+                println!("error verifying password: {}", error);
             }
         }
     }
@@ -558,7 +563,7 @@ async fn get_conn() -> SqliteConnection {
 		}
 		db
 	});
-	println!("DB_URL={}", db);
+	//println!("DB_URL={}", db);
 	let conn = SqliteConnection::connect(
         &db,
     ).await.unwrap();
@@ -607,7 +612,8 @@ fn load_rustls_config() -> Result<rustls::ServerConfig, String> {
 }
 
 fn get_local_datetime(created_at: NaiveDateTime) -> String {
-    let date_time = Local.from_utc_datetime(&created_at);
+    //let date_time = Local.from_utc_datetime(&created_at);
+    let date_time = &created_at;
     let (is_pm, hour) = date_time.hour12();
     let date_string = format!("{}-{:02}-{:02}  ({}) {:02}:{:02} {}",
         date_time.year(),date_time.month(),date_time.day(),date_time.weekday(),
@@ -637,6 +643,7 @@ async fn main() -> std::io::Result<()> {
 
     match config {
         Ok(config) => {
+            println!("listening on https port 21114");
             HttpServer::new(|| {
                 App::new()
                     .service(home)
@@ -650,12 +657,14 @@ async fn main() -> std::io::Result<()> {
                     .service(changepassform)
                     .service(install)
                     .service(https)
+                    .route("/{filename:.*}", web::get().to(download))
             })
             .bind_rustls_021("0.0.0.0:21114", config)?
             .run()
             .await
         }
         Err(_error_message) => {
+            println!("listening on http port 21114");
             HttpServer::new(|| {
                 App::new()
                     .service(home)
@@ -669,6 +678,7 @@ async fn main() -> std::io::Result<()> {
                     .service(changepassform)
                     .service(install)
                     .service(https)
+                    .route("/{filename:.*}", web::get().to(download))
             })
             .bind(("0.0.0.0", 21114))?
             .run()
