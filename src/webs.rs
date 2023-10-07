@@ -54,16 +54,33 @@ static HTML_MENU: &str = r#"<!DOCTYPE html>
 
     table {
         border-collapse: collapse;
-        padding-left: 16px;
+        margin: 25px 0;
+        font-size: 0.9em;
+        font-family: sans-serif;
+        min-width: 400px;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
+    }
+
+    thead tr {
+        background-color: #2c8cff;
+        color: #ffffff;
+        text-align: left;
     }
 
     th, td {
-        border: 1px solid black;
-        padding: 5px;
+        padding: 12px 15px;
     }
 
-    th {
-        font-weight: bold;
+    tbody tr {
+        border-bottom: 1px solid #2c8cff;
+    }
+    
+    tbody tr:nth-of-type(even) {
+        background-color: #f3f3f3;
+    }
+    
+    tbody tr:last-of-type {
+        border-bottom: 2px solid #2c8cff;
     }
 </style>
 
@@ -122,6 +139,7 @@ async fn home(req: HttpRequest) -> impl Responder {
                             <th>Name</th>
                             <th>Info</th>
                             <th>Status</th>
+                            <th>Rename Device</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -177,8 +195,9 @@ async fn home(req: HttpRequest) -> impl Responder {
                             <th>ID</th>
                             <th>Device Name</th>
                             <th>Info</th>
-                            <th>Status</th>
                             <th>Last Online</th>
+                            <th>Rename Device</th>
+                            <th>Delete Device</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -198,7 +217,6 @@ async fn home(req: HttpRequest) -> impl Responder {
                         <td>{}</td>
                         <td>{}</td>
                         <td>{}</td>
-                        <td>{:?}</td>
                         <td>{:?}</td>
                         <td>
                             <form action="/rename" method="post">
@@ -221,7 +239,6 @@ async fn home(req: HttpRequest) -> impl Responder {
                     None => String::from_utf8("unknown".as_bytes().to_vec()).unwrap(),
                 },
                 device.info,
-                device.status.unwrap(),
                 date_time,
                 device.id,
                 device.id,
