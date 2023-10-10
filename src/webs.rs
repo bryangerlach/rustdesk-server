@@ -1,8 +1,8 @@
 extern crate time;
 use std::{io::BufReader, fs::File, path::PathBuf};
 
-use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, cookie::Cookie, HttpRequest, http::Error, Result};
-use chrono::{NaiveDateTime, Datelike, Timelike, Local, TimeZone};
+use actix_web::{get, post, web, App, HttpResponse, HttpServer, Responder, cookie::Cookie, HttpRequest, Result};
+use chrono::{NaiveDateTime, Datelike, Timelike, Local, TimeZone, DateTime, format::strftime};
 use serde::Deserialize;
 use sqlx::{sqlite::SqliteConnection, Connection};
 use argon2::{self, Config};
@@ -629,8 +629,7 @@ fn load_rustls_config() -> Result<rustls::ServerConfig, String> {
 }
 
 fn get_local_datetime(created_at: NaiveDateTime) -> String {
-    let date_time = Local.from_utc_datetime(&created_at);
-    //let date_time = &created_at;
+    let date_time = TimeZone::from_utc_datetime(&Local, &created_at);
     let (is_pm, hour) = date_time.hour12();
     let date_string = format!("{}-{:02}-{:02}  ({}) {:02}:{:02} {}",
         date_time.year(),date_time.month(),date_time.day(),date_time.weekday(),
