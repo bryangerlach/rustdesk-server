@@ -295,7 +295,7 @@ async fn log(req: HttpRequest) -> impl Responder {
                     </tr>
                 "#,
                 match &log.logged_at {
-                    Some(lat) => lat.to_string(),
+                    Some(lat) => get_local_datetime(*lat),
                     None => String::from_utf8("unknown".as_bytes().to_vec()).unwrap(),
                 },
                 match &log.from_ip {
