@@ -115,6 +115,7 @@ jobs:
 
       - name: Sign exe files
         uses: GermanBluefox/code-sign-action@v7
+        if: false
         with:
           certificate: '${{ secrets.WINDOWS_PFX_BASE64 }}'
           password: '${{ secrets.WINDOWS_PFX_PASSWORD }}'
@@ -143,6 +144,7 @@ jobs:
 
       - name: Sign UI setup file 
         uses: GermanBluefox/code-sign-action@v7
+        if: false
         with:
           certificate: '${{ secrets.WINDOWS_PFX_BASE64 }}'
           password: '${{ secrets.WINDOWS_PFX_PASSWORD }}'
