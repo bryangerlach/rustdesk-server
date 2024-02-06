@@ -659,7 +659,7 @@ async fn main() -> std::io::Result<()> {
 
     match config {
         Ok(config) => {
-            println!("listening on https port 21114");
+            println!("listening on https port 21113");
             HttpServer::new(|| {
                 App::new()
                     .service(home)
@@ -675,12 +675,12 @@ async fn main() -> std::io::Result<()> {
                     .service(https)
                     .route("/{filename:.*}", web::get().to(download))
             })
-            .bind_rustls_021("0.0.0.0:21114", config)?
+            .bind_rustls_021("0.0.0.0:21113", config)?
             .run()
             .await
         }
         Err(_error_message) => {
-            println!("listening on http port 21114");
+            println!("listening on http port 21113");
             HttpServer::new(|| {
                 App::new()
                     .service(home)
@@ -696,7 +696,7 @@ async fn main() -> std::io::Result<()> {
                     .service(https)
                     .route("/{filename:.*}", web::get().to(download))
             })
-            .bind(("0.0.0.0", 21114))?
+            .bind(("0.0.0.0", 21113))?
             .run()
             .await
         }
