@@ -78,7 +78,7 @@ pub fn init_args(args: &str, name: &str, about: &str) {
         }
     }
     for (k, v) in matches.args {
-        if let Some(v) = v.vals.get(0) {
+        if let Some(v) = v.vals.first() {
             std::env::set_var(arg_name(k), v.to_string_lossy().to_string());
         }
     }
@@ -113,13 +113,18 @@ pub fn gen_sk(wait: u64) -> (String, Option<sign::SecretKey>) {
     if let Ok(mut file) = std::fs::File::open(sk_file) {
         let mut contents = String::new();
         if file.read_to_string(&mut contents).is_ok() {
-            let sk = base64::decode(&contents).unwrap_or_default();
+            let contents = contents.trim();
+            let sk = base64::decode(contents).unwrap_or_default();
             if sk.len() == sign::SECRETKEYBYTES {
                 let mut tmp = [0u8; sign::SECRETKEYBYTES];
                 tmp[..].copy_from_slice(&sk);
                 let pk = base64::encode(&tmp[sign::SECRETKEYBYTES / 2..]);
                 log::info!("Private key comes from {}", sk_file);
                 return (pk, Some(sign::SecretKey(tmp)));
+            } else {
+                // don't use log here, since it is async
+                println!("Fatal error: malformed private key in {sk_file}.");
+                std::process::exit(1);
             }
         }
     } else {
@@ -156,8 +161,6 @@ pub async fn listen_signal() -> Result<()> {
     use hbb_common::tokio::signal::unix::{signal, SignalKind};
 
     tokio::spawn(async {
-        let mut s = signal(SignalKind::hangup())?;
-        let hangup = s.recv();
         let mut s = signal(SignalKind::terminate())?;
         let terminate = s.recv();
         let mut s = signal(SignalKind::interrupt())?;
@@ -166,9 +169,6 @@ pub async fn listen_signal() -> Result<()> {
         let quit = s.recv();
 
         tokio::select! {
-            _ = hangup => {
-                log::info!("signal hangup");
-            }
             _ = terminate => {
                 log::info!("signal terminate");
             }
