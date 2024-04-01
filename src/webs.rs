@@ -260,7 +260,7 @@ async fn log(req: HttpRequest) -> impl Responder {
     }
     let mut conn = get_conn().await;
 
-	let logs = sqlx::query_as!(Logs, "SELECT from_ip, to_id, logged_at, user FROM log INNER JOIN peer ON peer.id = log.to_id ORDER BY logged_at DESC LIMIT 50").fetch_all(&mut conn).await;
+	let logs = sqlx::query_as!(Logs, "SELECT from_ip, to_id, logged_at, user FROM api_log INNER JOIN peer ON peer.id = api_log.to_id ORDER BY logged_at DESC LIMIT 50").fetch_all(&mut conn).await;
     // Render the data in a table.
     let table = format!(
         r#"
