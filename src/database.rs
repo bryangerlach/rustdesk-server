@@ -92,10 +92,12 @@ impl Database {
             create index if not exists index_peer_user on peer (user);
             create index if not exists index_peer_created_at on peer (created_at);
             create index if not exists index_peer_status on peer (status);
-            create table if not exists log (
-                from_ip varchar(100),
-                to_id varchar(100),
-                logged_at datetime not null default(current_timestamp)
+            CREATE TABLE if not exists api_log (
+                id	INTEGER NOT NULL,
+                from_ip	varchar(100),
+                to_id	varchar(100),
+                logged_at	datetime NOT NULL DEFAULT (current_timestamp),
+                PRIMARY KEY(id AUTOINCREMENT)
             );
         "
         )
@@ -153,7 +155,7 @@ impl Database {
         to_id: &str,
     ) -> ResultType<()> {
         sqlx::query!(
-            "insert into log(from_ip, to_id) values (?, ?)",
+            "insert into api_log(from_ip, to_id) values (?, ?)",
             from_ip,
             to_id
         )
