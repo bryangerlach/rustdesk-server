@@ -10,6 +10,7 @@ name: build
 on:
   workflow_dispatch:
   push:
+    branches: [ "master" ]
     tags:
       - 'v[0-9]+.[0-9]+.[0-9]+'
       - '[0-9]+.[0-9]+.[0-9]+'
@@ -200,7 +201,8 @@ jobs:
       - name: Create Release (${{ matrix.job.os }} - (${{ matrix.job.name }})
         uses: softprops/action-gh-release@v1
         with:
-          draft: true
+          prerelease: false
+          tag_name: nightly
           files: ${{ matrix.job.name }}/rustdesk-server-${{ matrix.job.os }}-${{ matrix.job.name }}.zip
             
   # docker build and push of single-arch images
@@ -487,7 +489,8 @@ jobs:
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          draft: true
+          prerelease: false
+          tag_name: nightly
           files: |
             debian-build/rustdesk-server-hbbr_*_${{ matrix.job.debian_platform }}.deb
             debian-build/rustdesk-server-hbbs_*_${{ matrix.job.debian_platform }}.deb
